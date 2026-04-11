@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:15.13-alpine
+    container_name: lila-postgres
+    environment:
+      POSTGRES_DB: nakama
+      POSTGRES_PASSWORD: localdb
+      POSTGRES_USER: localuser
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U localuser -d nakama"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  nakama-migrate:
+    image: registry.heroiclabs.com/heroiclabs/nakama:3.38.0
+    container_name: lila-nakama-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - migrate
+      - up
+      - --database.address
+      - postgres://localuser:localdb@postgres:5432/nakama?sslmode=disable
+    restart: "no"
+
+  nakama:
+    build:
+      context: .
+      dockerfile: docker/nakama/Dockerfile
+    container_name: lila-nakama
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nakama-migrate:
+        condition: service_completed_successfully
+    entrypoint:
+      - /bin/sh
+      - -ecx
+      - >
+        exec /nakama/nakama
+        --name lila-nakama
+        --database.address postgres://localuser:localdb@postgres:5432/nakama?sslmode=disable
+        --config /nakama/data/local.yml
+    healthcheck:
+      test: ["CMD", "/nakama/nakama", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "7349:7349"
+      - "7350:7350"
+      - "7351:7351"
+    volumes:
+      - ./docker/nakama/local.yml:/nakama/data/local.yml:ro
+
+volumes:
+  postgres_data:

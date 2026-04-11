@@ -1,0 +1,22 @@
+name: "lila-nakama"
+database:
+  address:
+    - "postgres://localuser:localdb@postgres:5432/nakama?sslmode=disable"
+
+console:
+  username: "admin"
+  password: "password"
+
+logger:
+  level: "DEBUG"
+
+runtime:
+  path: "/nakama/data/modules"
+  http_key: "lila-http-key"
+
+session:
+  encryption_key: "lila-session-encryption-key-32"
+  refresh_encryption_key: "lila-refresh-encryption-key-32"
+
+socket:
+  server_key: "lila-socket-server-key"

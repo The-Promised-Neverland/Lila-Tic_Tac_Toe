@@ -1,0 +1,8 @@
+.git
+.gitignore
+bin
+build
+dist
+tmp
+*.log
+docker-data
