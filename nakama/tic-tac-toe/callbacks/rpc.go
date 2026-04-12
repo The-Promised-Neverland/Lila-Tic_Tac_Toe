@@ -55,6 +55,15 @@ func handleCreateRoomRPC(ctx context.Context, logger runtime.Logger, db *sql.DB,
 		return "", errors.New("could not create room")
 	}
 
+	if req.Private {
+		if inviteCode, ok := params["invite_code"].(string); ok && inviteCode != "" {
+			if err := game.WriteInviteCode(ctx, nk, inviteCode, matchID); err != nil {
+				logger.Error("write invite code on create failed: %v", err)
+				return "", errors.New("could not create invite code")
+			}
+		}
+	}
+
 	resp := game.RoomCreateResponse{
 		MatchID:         matchID,
 		Private:         req.Private,
