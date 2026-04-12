@@ -62,11 +62,22 @@ func (t *onlinePresenceTracker) count() int {
 }
 
 func handleSessionStart(ctx context.Context, logger runtime.Logger, evt *api.Event) {
-	onlinePlayers.add(evt.GetProperties()["user_id"], evt.GetProperties()["session_id"])
+	onlinePlayers.add(
+		getCtxString(ctx, runtime.RUNTIME_CTX_USER_ID),
+		getCtxString(ctx, runtime.RUNTIME_CTX_SESSION_ID),
+	)
 }
 
 func handleSessionEnd(ctx context.Context, logger runtime.Logger, evt *api.Event) {
-	onlinePlayers.remove(evt.GetProperties()["user_id"], evt.GetProperties()["session_id"])
+	onlinePlayers.remove(
+		getCtxString(ctx, runtime.RUNTIME_CTX_USER_ID),
+		getCtxString(ctx, runtime.RUNTIME_CTX_SESSION_ID),
+	)
+}
+
+func getCtxString(ctx context.Context, key interface{}) string {
+	value, _ := ctx.Value(key).(string)
+	return value
 }
 
 func handleGetOnlinePlayerCountRPC(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
