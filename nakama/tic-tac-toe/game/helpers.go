@@ -44,7 +44,7 @@ func MustJSON(v interface{}) (string, error) {
 	return string(data), nil
 }
 
-func (s *MatchState) HandleMove(logger runtime.Logger, dispatcher runtime.MatchDispatcher, message runtime.MatchData, tick int64) error {
+func (s *MatchState) HandleMove(ctx context.Context, logger runtime.Logger, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, message runtime.MatchData, tick int64) error {
 	if s.Status != "playing" {
 		return errors.New("match is not active")
 	}
@@ -83,6 +83,11 @@ func (s *MatchState) HandleMove(logger runtime.Logger, dispatcher runtime.MatchD
 		s.ResultRecorded = true
 		s.BroadcastState(logger, dispatcher, nil)
 		s.SyncLabel(logger, dispatcher)
+		if err := s.PersistMatchResult(ctx, nk); err != nil {
+			logger.Error("persist match result failed: %v", err)
+		} else {
+			s.ResultPersisted = true
+		}
 		return nil
 	}
 
@@ -92,6 +97,11 @@ func (s *MatchState) HandleMove(logger runtime.Logger, dispatcher runtime.MatchD
 		s.ResultRecorded = true
 		s.BroadcastState(logger, dispatcher, nil)
 		s.SyncLabel(logger, dispatcher)
+		if err := s.PersistMatchResult(ctx, nk); err != nil {
+			logger.Error("persist match result failed: %v", err)
+		} else {
+			s.ResultPersisted = true
+		}
 		return nil
 	}
 
@@ -179,7 +189,11 @@ func (s *MatchState) FinishForfeit(ctx context.Context, logger runtime.Logger, n
 	s.ResultRecorded = true
 	s.BroadcastState(logger, dispatcher, nil)
 	s.SyncLabel(logger, dispatcher)
-	_ = s.PersistMatchResult(ctx, nk)
+	if err := s.PersistMatchResult(ctx, nk); err != nil {
+		logger.Error("persist forfeited match result failed: %v", err)
+		return
+	}
+	s.ResultPersisted = true
 }
 
 func (s *MatchState) PersistMatchResult(ctx context.Context, nk runtime.NakamaModule) error {

@@ -179,4 +179,5 @@ type MatchState struct {
 	LastTick          int64
 	TurnDeadlineTick  int64
 	ResultRecorded    bool
+	ResultPersisted   bool
 }

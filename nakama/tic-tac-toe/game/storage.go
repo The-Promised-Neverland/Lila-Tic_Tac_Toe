@@ -36,7 +36,6 @@ func WriteInviteCode(ctx context.Context, nk runtime.NakamaModule, inviteCode, m
 	if err != nil {
 		return err
 	}
-
 	_, err = nk.StorageWrite(ctx, []*runtime.StorageWrite{{
 		Collection:      RoomCodeCollection,
 		Key:             NormalizeInviteCode(inviteCode),

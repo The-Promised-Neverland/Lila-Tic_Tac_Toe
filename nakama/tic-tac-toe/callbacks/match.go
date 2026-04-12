@@ -106,7 +106,7 @@ func (m *TicTacToeMatchHandler) MatchLoop(ctx context.Context, logger runtime.Lo
 			continue
 		}
 
-		if err := state.HandleMove(logger, dispatcher, message, tick); err != nil {
+		if err := state.HandleMove(ctx, logger, nk, dispatcher, message, tick); err != nil {
 			logger.Warn("move rejected for user %s: %v", message.GetUserId(), err)
 		}
 	}
@@ -114,6 +114,14 @@ func (m *TicTacToeMatchHandler) MatchLoop(ctx context.Context, logger runtime.Lo
 	if state.Status == "playing" {
 		state.HandleDisconnects(ctx, logger, nk, dispatcher, tick)
 		state.HandleTurnTimeout(ctx, logger, nk, dispatcher, tick)
+	}
+
+	if (state.Status == "finished" || state.Status == "draw" || state.Status == "forfeit") && state.ResultRecorded && !state.ResultPersisted {
+		if err := state.PersistMatchResult(ctx, nk); err != nil {
+			logger.Error("retry persist match result failed: %v", err)
+		} else {
+			state.ResultPersisted = true
+		}
 	}
 
 	if state.Status == "waiting" && state.NoConnectedPlayers() {
