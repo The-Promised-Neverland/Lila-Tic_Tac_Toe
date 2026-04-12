@@ -97,7 +97,7 @@ func handleListRoomsRPC(ctx context.Context, logger runtime.Logger, db *sql.DB, 
 		if err := json.Unmarshal([]byte(match.Label.Value), &label); err != nil {
 			continue
 		}
-		if label.Private || label.Status != "waiting" || !label.Open {
+		if label.Private || label.Status != game.RoomStatusWaiting || !label.Open {
 			continue
 		}
 

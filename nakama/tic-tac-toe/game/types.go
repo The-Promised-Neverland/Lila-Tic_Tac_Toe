@@ -5,6 +5,16 @@ import "time"
 const (
 	OpCodeMove  int64 = 1
 	OpCodeState int64 = 2
+	OpCodeRematch int64 = 3
+)
+
+const (
+	RoomStatusWaiting   = "waiting"
+	RoomStatusPlaying   = "playing"
+	RoomStatusFinished  = "finished"
+	RoomStatusDraw      = "draw"
+	RoomStatusForfeit   = "forfeit"
+	RoomStatusNoContest = "no_contest"
 )
 
 const (
@@ -184,4 +194,5 @@ type MatchState struct {
 	TurnDeadlineTick  int64
 	ResultRecorded    bool
 	ResultPersisted   bool
+	RematchRequests   map[string]bool
 }

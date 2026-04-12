@@ -19,19 +19,19 @@ func RegisterTicTacToeModule(ctx context.Context, logger runtime.Logger, db *sql
 		name string
 		fn   func() error
 	}{
-		{"match handler", func() error {
+		{RegMatchHandler, func() error {
 			return initializer.RegisterMatch(game.MatchModuleName, func(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule) (runtime.Match, error) {
 				return &TicTacToeMatchHandler{}, nil
 			})
 		}},
-		{"matchmaker matched", func() error { return initializer.RegisterMatchmakerMatched(handleMatchmakerMatched) }},
-		{"rpc create_room", func() error { return initializer.RegisterRpc("create_room", handleCreateRoomRPC) }},
-		{"rpc list_rooms", func() error { return initializer.RegisterRpc("list_rooms", handleListRoomsRPC) }},
-		{"rpc join_private_room", func() error { return initializer.RegisterRpc("join_private_room", handleJoinPrivateRoomRPC) }},
-		{"rpc get_player_profile", func() error { return initializer.RegisterRpc("get_player_profile", handleGetPlayerProfileRPC) }},
-		{"rpc get_online_player_count", func() error { return initializer.RegisterRpc("get_online_player_count", handleGetOnlinePlayerCountRPC) }},
-		{"session start", func() error { return initializer.RegisterEventSessionStart(handleSessionStart) }},
-		{"session end", func() error { return initializer.RegisterEventSessionEnd(handleSessionEnd) }},
+		{RegMatchmakerMatched, func() error { return initializer.RegisterMatchmakerMatched(handleMatchmakerMatched) }},
+		{RegRPCCreateRoom, func() error { return initializer.RegisterRpc(RPCCreateRoom, handleCreateRoomRPC) }},
+		{RegRPCListRooms, func() error { return initializer.RegisterRpc(RPCListRooms, handleListRoomsRPC) }},
+		{RegRPCJoinPrivateRoom, func() error { return initializer.RegisterRpc(RPCJoinPrivateRoom, handleJoinPrivateRoomRPC) }},
+		{RegRPCGetPlayerProfile, func() error { return initializer.RegisterRpc(RPCGetPlayerProfile, handleGetPlayerProfileRPC) }},
+		{RegRPCGetOnlineCount, func() error { return initializer.RegisterRpc(RPCGetOnlinePlayerCount, handleGetOnlinePlayerCountRPC) }},
+		{RegSessionStart, func() error { return initializer.RegisterEventSessionStart(handleSessionStart) }},
+		{RegSessionEnd, func() error { return initializer.RegisterEventSessionEnd(handleSessionEnd) }},
 	}
 
 	for _, registration := range registrations {

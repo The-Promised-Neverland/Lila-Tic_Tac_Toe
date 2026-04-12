@@ -25,6 +25,7 @@ func NewMatchState(params map[string]interface{}) *MatchState {
 		TurnTimeSeconds: turnTimeSeconds,
 		Players:         make(map[string]*MatchPlayer, MaxPlayers),
 		PlayerOrder:     make([]string, 0, MaxPlayers),
-		Status:          "waiting",
+		RematchRequests: make(map[string]bool, MaxPlayers),
+		Status:          RoomStatusWaiting,
 	}
 }

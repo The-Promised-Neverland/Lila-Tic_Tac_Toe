@@ -69,8 +69,8 @@ func (m *TicTacToeMatchHandler) MatchJoin(ctx context.Context, logger runtime.Lo
 		player.DisconnectAt = 0
 	}
 
-	if len(state.PlayerOrder) == game.MaxPlayers && state.Status == "waiting" {
-		state.Status = "playing"
+	if len(state.PlayerOrder) == game.MaxPlayers && state.Status == game.RoomStatusWaiting {
+		state.Status = game.RoomStatusPlaying
 		state.CurrentTurnUserID = state.PlayerOrder[0]
 		state.SetTurnDeadline(tick)
 	}
@@ -119,22 +119,24 @@ func (m *TicTacToeMatchHandler) MatchLoop(ctx context.Context, logger runtime.Lo
 	state.LastTick = tick
 
 	for _, message := range messages {
-		if message.GetOpCode() != game.OpCodeMove {
+		switch message.GetOpCode() {
+		case game.OpCodeMove:
+			if err := state.HandleMove(ctx, logger, nk, dispatcher, message, tick); err != nil {
+				logger.Warn("move rejected for user %s: %v", message.GetUserId(), err)
+			}
+		case game.OpCodeRematch:
+			state.HandleRematchRequest(logger, dispatcher, message.GetUserId(), tick)
+		default:
 			logger.Warn("unknown opcode %d", message.GetOpCode())
-			continue
-		}
-
-		if err := state.HandleMove(ctx, logger, nk, dispatcher, message, tick); err != nil {
-			logger.Warn("move rejected for user %s: %v", message.GetUserId(), err)
 		}
 	}
 
-	if state.Status == "playing" {
+	if state.Status == game.RoomStatusPlaying {
 		state.HandleDisconnects(ctx, logger, nk, dispatcher, tick)
 		state.HandleTurnTimeout(ctx, logger, nk, dispatcher, tick)
 	}
 
-	if (state.Status == "finished" || state.Status == "draw" || state.Status == "forfeit") && state.ResultRecorded && !state.ResultPersisted {
+	if (state.Status == game.RoomStatusFinished || state.Status == game.RoomStatusDraw || state.Status == game.RoomStatusForfeit) && state.ResultRecorded && !state.ResultPersisted {
 		if err := state.PersistMatchResult(ctx, nk); err != nil {
 			logger.Error("retry persist match result failed: %v", err)
 		} else {
@@ -142,7 +144,7 @@ func (m *TicTacToeMatchHandler) MatchLoop(ctx context.Context, logger runtime.Lo
 		}
 	}
 
-	if state.Status == "waiting" && state.NoConnectedPlayers() {
+	if state.Status == game.RoomStatusWaiting && state.NoConnectedPlayers() {
 		state.EmptyTicks++
 		if state.EmptyTicks > 60*game.DefaultTickRate {
 			if state.Private {

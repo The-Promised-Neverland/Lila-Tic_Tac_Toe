@@ -46,7 +46,7 @@ func MustJSON(v interface{}) (string, error) {
 }
 
 func (s *MatchState) HandleMove(ctx context.Context, logger runtime.Logger, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, message runtime.MatchData, tick int64) error {
-	if s.Status != "playing" {
+	if s.Status != RoomStatusPlaying {
 		return errors.New("match is not active")
 	}
 
@@ -76,7 +76,7 @@ func (s *MatchState) HandleMove(ctx context.Context, logger runtime.Logger, nk r
 	s.MoveCount++
 
 	if winningLine, won := DetectWinner(s.Board, player.Mark); won {
-		s.Status = "finished"
+		s.Status = RoomStatusFinished
 		s.WinnerUserID = player.UserID
 		s.WinnerMark = player.Mark
 		s.WinningLine = winningLine
@@ -93,7 +93,7 @@ func (s *MatchState) HandleMove(ctx context.Context, logger runtime.Logger, nk r
 	}
 
 	if s.MoveCount == BoardSize {
-		s.Status = "draw"
+		s.Status = RoomStatusDraw
 		s.TurnDeadlineTick = 0
 		s.ResultRecorded = true
 		s.BroadcastState(logger, dispatcher, nil)
@@ -111,6 +111,45 @@ func (s *MatchState) HandleMove(ctx context.Context, logger runtime.Logger, nk r
 	s.BroadcastState(logger, dispatcher, nil)
 	s.SyncLabel(logger, dispatcher)
 	return nil
+}
+
+func (s *MatchState) HandleRematchRequest(logger runtime.Logger, dispatcher runtime.MatchDispatcher, userID string, tick int64) {
+	if s.Status != RoomStatusFinished && s.Status != RoomStatusDraw && s.Status != RoomStatusForfeit && s.Status != RoomStatusNoContest {
+		return
+	}
+	if _, ok := s.Players[userID]; !ok {
+		return
+	}
+
+	if s.RematchRequests == nil {
+		s.RematchRequests = make(map[string]bool, MaxPlayers)
+	}
+	s.RematchRequests[userID] = true
+
+	if len(s.PlayerOrder) != MaxPlayers {
+		return
+	}
+	for _, id := range s.PlayerOrder {
+		if !s.RematchRequests[id] {
+			return
+		}
+	}
+
+	s.Board = [BoardSize]string{}
+	s.Status = RoomStatusPlaying
+	s.WinnerUserID = ""
+	s.WinnerMark = ""
+	s.WinningLine = nil
+	s.MoveCount = 0
+	s.CurrentTurnUserID = s.PlayerOrder[0]
+	s.TurnDeadlineTick = 0
+	s.ResultRecorded = false
+	s.ResultPersisted = false
+	s.EmptyTicks = 0
+	s.RematchRequests = make(map[string]bool, MaxPlayers)
+	s.SetTurnDeadline(tick)
+	s.SyncLabel(logger, dispatcher)
+	s.BroadcastState(logger, dispatcher, nil)
 }
 
 func (s *MatchState) HandleDisconnects(ctx context.Context, logger runtime.Logger, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64) {
@@ -143,7 +182,7 @@ func (s *MatchState) FinishNoContest(ctx context.Context, logger runtime.Logger,
 		return
 	}
 
-	s.Status = "no_contest"
+	s.Status = RoomStatusNoContest
 	s.CurrentTurnUserID = ""
 	s.TurnDeadlineTick = 0
 	s.ResultRecorded = true
@@ -180,7 +219,7 @@ func (s *MatchState) FinishForfeit(ctx context.Context, logger runtime.Logger, n
 		return
 	}
 
-	s.Status = "forfeit"
+	s.Status = RoomStatusForfeit
 	s.WinnerUserID = winnerID
 	if winner := s.Players[winnerID]; winner != nil {
 		s.WinnerMark = winner.Mark
@@ -228,13 +267,13 @@ func (s *MatchState) PersistMatchResult(ctx context.Context, nk runtime.NakamaMo
 			PlayedAt:     now,
 			OpponentID:   opponent.UserID,
 			OpponentName: opponent.Username,
-			Forfeit:      s.Status == "forfeit",
+			Forfeit:      s.Status == RoomStatusForfeit,
 			Timed:        s.Timed,
 			MoveCount:    s.MoveCount,
 		}
 
 		switch {
-		case s.Status == "draw":
+		case s.Status == RoomStatusDraw:
 			stats.Draws++
 			stats.WinStreak = 0
 			entry.Result = "draw"
@@ -248,7 +287,7 @@ func (s *MatchState) PersistMatchResult(ctx context.Context, nk runtime.NakamaMo
 		default:
 			stats.Losses++
 			stats.WinStreak = 0
-			if s.Status == "forfeit" {
+			if s.Status == RoomStatusForfeit {
 				entry.Result = "forfeit_loss"
 			} else {
 				entry.Result = "loss"
@@ -343,7 +382,7 @@ func (s *MatchState) Label() string {
 		InviteCode:      s.InviteCode,
 		PlayerCount:     len(s.PlayerOrder),
 		MaxPlayers:      MaxPlayers,
-		Open:            len(s.PlayerOrder) < MaxPlayers && s.Status == "waiting",
+		Open:            len(s.PlayerOrder) < MaxPlayers && s.Status == RoomStatusWaiting,
 		Status:          s.Status,
 	})
 	return label
@@ -382,7 +421,7 @@ func (s *MatchState) NoConnectedPlayers() bool {
 }
 
 func (s *MatchState) IsFinalStatus() bool {
-	return s.Status == "finished" || s.Status == "draw" || s.Status == "forfeit" || s.Status == "no_contest"
+	return s.Status == RoomStatusFinished || s.Status == RoomStatusDraw || s.Status == RoomStatusForfeit || s.Status == RoomStatusNoContest
 }
 
 func (s *MatchState) RemovePlayer(userID string) {
@@ -399,7 +438,7 @@ func (s *MatchState) RemovePlayer(userID string) {
 
 func (s *MatchState) ResetForNextRound() {
 	s.Board = [BoardSize]string{}
-	s.Status = "waiting"
+	s.Status = RoomStatusWaiting
 	s.WinnerUserID = ""
 	s.WinnerMark = ""
 	s.WinningLine = nil
@@ -409,6 +448,7 @@ func (s *MatchState) ResetForNextRound() {
 	s.ResultRecorded = false
 	s.ResultPersisted = false
 	s.EmptyTicks = 0
+	s.RematchRequests = make(map[string]bool, MaxPlayers)
 
 	for index, userID := range s.PlayerOrder {
 		player := s.Players[userID]
