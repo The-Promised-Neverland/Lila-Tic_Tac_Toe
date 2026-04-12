@@ -151,6 +151,10 @@ type PlayerProfileResponse struct {
 	History []MatchHistoryEntry `json:"history"`
 }
 
+type OnlinePlayerCountResponse struct {
+	Count int `json:"count"`
+}
+
 type MatchPlayer struct {
 	UserID       string
 	Username     string

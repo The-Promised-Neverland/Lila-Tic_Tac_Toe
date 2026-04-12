@@ -69,7 +69,8 @@ func handleCreateRoomRPC(ctx context.Context, logger runtime.Logger, db *sql.DB,
 }
 
 func handleListRoomsRPC(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
-	matches, err := nk.MatchList(ctx, game.PublicRoomLimit, true, "", nil, nil, "")
+	query := "+label.status:waiting +label.private:false"
+	matches, err := nk.MatchList(ctx, game.PublicRoomLimit, true, "", nil, nil, query)
 	if err != nil {
 		logger.Error("list rooms failed: %v", err)
 		return "", errors.New("could not list rooms")
@@ -80,15 +81,12 @@ func handleListRoomsRPC(ctx context.Context, logger runtime.Logger, db *sql.DB, 
 	}
 
 	for _, match := range matches {
-		if match == nil || match.Label == nil || match.Label.Value == "" {
+		if match == nil || match.Label == nil {
 			continue
 		}
 
 		var label game.MatchLabel
 		if err := json.Unmarshal([]byte(match.Label.Value), &label); err != nil {
-			continue
-		}
-		if label.Private || label.Status != "waiting"  || label.Open == false{
 			continue
 		}
 

@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/heroiclabs/nakama-common/api"
 	"github.com/heroiclabs/nakama-common/runtime"
 )
 
 func EnsureGlobalLeaderboardExists(ctx context.Context, logger runtime.Logger, nk runtime.NakamaModule) error {
-	err := nk.LeaderboardCreate(ctx, LeaderboardID, true, "desc", "best", "", map[string]interface{}{
+	err := nk.LeaderboardCreate(ctx, LeaderboardID, true, "desc", "set", "", map[string]interface{}{
 		"game": "tic_tac_toe",
 	}, true)
 	if err == nil {
@@ -201,6 +202,8 @@ func (s *MatchState) PersistMatchResult(ctx context.Context, nk runtime.NakamaMo
 		return nil
 	}
 
+	setOperator := int(api.Operator_SET)
+
 	a := s.Players[s.PlayerOrder[0]]
 	b := s.Players[s.PlayerOrder[1]]
 	if a == nil || b == nil {
@@ -259,15 +262,16 @@ func (s *MatchState) PersistMatchResult(ctx context.Context, nk runtime.NakamaMo
 			return err
 		}
 
-		score := int64(stats.Wins*3 + stats.Draws)
+		score := int64(stats.Wins*200 - stats.Losses*100)
 		subscore := int64(stats.BestStreak)
 		if _, err := nk.LeaderboardRecordWrite(ctx, LeaderboardID, current.UserID, current.Username, score, subscore, map[string]interface{}{
+			"points":      score,
 			"wins":        stats.Wins,
 			"losses":      stats.Losses,
 			"draws":       stats.Draws,
 			"win_streak":  stats.WinStreak,
 			"best_streak": stats.BestStreak,
-		}, nil); err != nil {
+		}, &setOperator); err != nil {
 			return err
 		}
 	}
@@ -375,6 +379,45 @@ func (s *MatchState) NoConnectedPlayers() bool {
 		}
 	}
 	return true
+}
+
+func (s *MatchState) IsFinalStatus() bool {
+	return s.Status == "finished" || s.Status == "draw" || s.Status == "forfeit" || s.Status == "no_contest"
+}
+
+func (s *MatchState) RemovePlayer(userID string) {
+	delete(s.Players, userID)
+
+	filtered := make([]string, 0, len(s.PlayerOrder))
+	for _, id := range s.PlayerOrder {
+		if id != userID {
+			filtered = append(filtered, id)
+		}
+	}
+	s.PlayerOrder = filtered
+}
+
+func (s *MatchState) ResetForNextRound() {
+	s.Board = [BoardSize]string{}
+	s.Status = "waiting"
+	s.WinnerUserID = ""
+	s.WinnerMark = ""
+	s.WinningLine = nil
+	s.MoveCount = 0
+	s.CurrentTurnUserID = ""
+	s.TurnDeadlineTick = 0
+	s.ResultRecorded = false
+	s.ResultPersisted = false
+	s.EmptyTicks = 0
+
+	for index, userID := range s.PlayerOrder {
+		player := s.Players[userID]
+		if player == nil {
+			continue
+		}
+		player.Mark = NextMark(index)
+		player.DisconnectAt = 0
+	}
 }
 
 func NextMark(index int) string {

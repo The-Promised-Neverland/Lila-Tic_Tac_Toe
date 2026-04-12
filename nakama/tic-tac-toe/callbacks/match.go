@@ -84,6 +84,24 @@ func (m *TicTacToeMatchHandler) MatchLeave(ctx context.Context, logger runtime.L
 	state := stateRaw.(*game.MatchState)
 	state.LastTick = tick
 
+	if state.IsFinalStatus() {
+		for _, presence := range presences {
+			state.RemovePlayer(presence.GetUserId())
+		}
+
+		if len(state.PlayerOrder) == 0 {
+			if state.Private {
+				_ = game.DeleteInviteCode(ctx, nk, state.InviteCode)
+			}
+			return nil
+		}
+
+		state.ResetForNextRound()
+		state.SyncLabel(logger, dispatcher)
+		state.BroadcastState(logger, dispatcher, nil)
+		return state
+	}
+
 	for _, presence := range presences {
 		if player, ok := state.Players[presence.GetUserId()]; ok {
 			player.Connected = false

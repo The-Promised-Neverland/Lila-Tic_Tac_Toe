@@ -29,6 +29,9 @@ func RegisterTicTacToeModule(ctx context.Context, logger runtime.Logger, db *sql
 		{"rpc list_rooms", func() error { return initializer.RegisterRpc("list_rooms", handleListRoomsRPC) }},
 		{"rpc join_private_room", func() error { return initializer.RegisterRpc("join_private_room", handleJoinPrivateRoomRPC) }},
 		{"rpc get_player_profile", func() error { return initializer.RegisterRpc("get_player_profile", handleGetPlayerProfileRPC) }},
+		{"rpc get_online_player_count", func() error { return initializer.RegisterRpc("get_online_player_count", handleGetOnlinePlayerCountRPC) }},
+		{"session start", func() error { return initializer.RegisterEventSessionStart(handleSessionStart) }},
+		{"session end", func() error { return initializer.RegisterEventSessionEnd(handleSessionEnd) }},
 	}
 
 	for _, registration := range registrations {
