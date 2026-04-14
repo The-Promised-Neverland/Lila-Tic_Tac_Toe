@@ -7,6 +7,7 @@ This repo is structured so Nakama-specific code lives under `nakama/`, with a cl
 - `nakama/main.go`: Nakama plugin entrypoint
 - `nakama/tic-tac-toe/callbacks/`: functions Nakama calls
 - `nakama/tic-tac-toe/game/`: functions and types we use internally
+- `docker-compose.yml`: production-style container wiring driven by `.env`
 
 ## Included in the current scaffold
 
@@ -26,3 +27,4 @@ This repo is structured so Nakama-specific code lives under `nakama/`, with a cl
 - `nakama/build/` for plugin build output
 - `deploy/` or `infra/` for Docker/cloud setup
 - `clients/` or `frontend/` when the UI lands
+- secret rotation and environment-specific `.env` files
